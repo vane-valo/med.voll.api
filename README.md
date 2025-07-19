@@ -63,3 +63,64 @@ La API REST implementa las siguientes operaciones CRUD:
 
 Se recomienda utilizar [Insomnia](https://insomnia.rest/) para probar los endpoints de la API REST. Puedes importar un archivo de configuración de Insomnia (si lo tienes
 
+## Autenticación y Validación
+
+Este proyecto implementa un sistema de autenticación y validación robusto utilizando Spring Security y JWT (JSON Web Tokens). A continuación, se detallan los aspectos clave de la implementación:
+
+### Autenticación
+
+-   **Inicio de Sesión:**
+    -   El `AutenticacionController` gestiona el inicio de sesión, recibiendo un DTO (`DatosAutenticacion`) con las credenciales del usuario (login y contraseña).
+    -   Este DTO se convierte en un `UsernamePasswordAuthenticationToken`, un formato que Spring Security puede procesar.
+    -   El `AuthenticationManager` autentica al usuario.
+    -   Si la autenticación es exitosa, se genera un token JWT utilizando el `TokenService`.
+    -   El token JWT se devuelve al cliente en un DTO (`DatosTokenJWT`).
+
+-   **Generación de Tokens JWT:**
+    -   El `TokenService` es responsable de generar tokens JWT utilizando la biblioteca Auth0JWT.
+    -   El token incluye información como el emisor, el asunto (login del usuario) y la fecha de expiración.
+    -   La firma del token se realiza con un algoritmo HMAC256 y una clave secreta.
+
+-   **Filtro de Seguridad:**
+    -   El `SecurityFilter` es un filtro que se ejecuta antes de cada petición.
+    -   Recupera el token JWT del encabezado de autorización (`Authorization`).
+    -   Valida el token y extrae el "subject" (login del usuario).
+    -   Utiliza el `UsuarioRepository` para obtener los detalles del usuario.
+    -   Crea un `UsernamePasswordAuthenticationToken` para informar a Spring Security que el usuario ha sido autenticado.
+    -   Establece la autenticación en el `SecurityContextHolder`.
+
+### Seguridad
+
+-   **Configuración de Seguridad:**
+    -   La clase `SecurityConfigurations` define las políticas de seguridad del sistema.
+    -   Deshabilita el CSRF (Cross-Site Request Forgery) ya que la API es stateless.
+    -   Configura la gestión de sesiones como stateless.
+    -   Define qué endpoints requieren autenticación y cuáles son permitidos (por ejemplo, `/login` es público).
+    -   Añade el `SecurityFilter` antes del filtro de autenticación por nombre de usuario y contraseña de Spring Security.
+
+-   **Hashing de Contraseñas:**
+    -   Se utiliza Bcrypt para realizar el hashing de las contraseñas antes de almacenarlas en la base de datos.
+    -   Bcrypt es un algoritmo de hashing de una sola vía, lo que significa que no se puede obtener la contraseña original a partir del hash.
+
+### Validación
+
+-   **Validación de Datos de Entrada:**
+    -   Se utiliza la anotación `@Valid` para validar los datos de entrada en los controladores.
+    -   Si los datos no son válidos, se lanza una `MethodArgumentNotValidException`.
+    -   El `GestorDeErrores` intercepta esta excepción y devuelve una respuesta de error 400 (Bad Request) con los detalles de los errores de validación.
+
+-   **Gestión de Errores:**
+    -   El `RestControllerAdvice` (`GestorDeErrores`) gestiona las excepciones de forma centralizada.
+    -   Para `EntityNotFoundException`, devuelve un error 404 (Not Found).
+    -   Para `MethodArgumentNotValidException`, devuelve un error 400 (Bad Request) con los detalles de los errores de validación.
+
+### Detalles del Usuario
+
+-   **Implementación de `UserDetails`:**
+    -   La clase `Usuario` implementa la interfaz `UserDetails` de Spring Security.
+    -   Esto permite a Spring Security utilizar la clase `Usuario` para la autenticación y autorización.
+    -   Se implementan los métodos `getAuthorities`, `getPassword` y `getUsername` para proporcionar a Spring Security la información necesaria.
+
+-   **Repositorio de Usuarios:**
+    -   El `UsuarioRepository` extiende `JpaRepository` y proporciona métodos para buscar usuarios en la base de datos.
+    -   Se utiliza el método `findByLogin` para buscar un usuario por su nombre de usuario (login).
